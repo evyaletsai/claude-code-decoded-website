@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Code Decoded</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #09090f;
+      --card-bg: rgba(255,255,255,0.038);
+      --border: rgba(255,255,255,0.09);
+      --text: #ede9f8;
+      --muted: rgba(237,233,248,0.42);
+      --c-core:     oklch(76% 0.21 42);
+      --c-tools:    oklch(79% 0.2  196);
+      --c-memory:   oklch(76% 0.21 148);
+      --c-commands: oklch(71% 0.25 330);
+      --c-arch:     oklch(73% 0.22 288);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Grain overlay ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 998;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px;
+      opacity: var(--grain-opacity, 0.028);
+      mix-blend-mode: overlay;
+    }
+
+    /* ── Orbs ── */
+    .orbs {
+      position: fixed; inset: 0;
+      overflow: hidden; pointer-events: none; z-index: 0;
+    }
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(100px);
+      animation: orbDrift ease-in-out infinite;
+    }
+    .orb-1 { width:700px;height:700px;left:-280px;top:-180px;background:oklch(42% 0.22 290);opacity:.2;animation-duration:24s; }
+    .orb-2 { width:520px;height:520px;right:-180px;top:20%;background:oklch(46% 0.2 196);opacity:.16;animation-duration:30s;animation-delay:-7s;animation-direction:reverse; }
+    .orb-3 { width:580px;height:580px;left:10%;bottom:-180px;background:oklch(48% 0.19 42);opacity:.14;animation-duration:35s;animation-delay:-14s; }
+    .orb-4 { width:380px;height:380px;right:8%;bottom:18%;background:oklch(42% 0.24 330);opacity:.15;animation-duration:20s;animation-delay:-4s;animation-direction:reverse; }
+    @keyframes orbDrift {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%      { transform: translate(35px,-28px) scale(1.05); }
+      66%      { transform: translate(-22px,24px) scale(.96); }
+    }
+
+    /* ── TICKER ── */
+    .ticker {
+      position: relative; z-index: 2;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.018);
+      padding: .6rem 0; overflow: hidden;
+    }
+    .ticker-track {
+      display: flex; white-space: nowrap;
+      animation: tickerScroll 28s linear infinite;
+      width: max-content;
+    }
+    .ticker-track span {
+      font-family: 'Space Mono', monospace;
+      font-size: .68rem; letter-spacing: .22em;
+      color: var(--muted); padding-right: 3rem;
+    }
+    .ticker-track span em {
+      font-style: normal;
+      color: var(--c-tools); margin-right: .5em;
+    }
+    @keyframes tickerScroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 2rem;
+    }
+    .hero-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: .7rem; letter-spacing: .35em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 2rem;
+    }
+    .hero-title {
+      font-weight: 800; line-height: .86;
+      letter-spacing: -.03em;
+      font-size: clamp(5rem, 14vw, 12rem);
+      animation: glitch 10s ease-in-out infinite;
+      user-select: none;
+    }
+    .t1 { display: block; color: var(--text); }
+    .t2 {
+      display: block;
+      color: transparent;
+      -webkit-text-stroke: 2px var(--c-tools);
+      position: relative;
+    }
+    @keyframes glitch {
+      0%,82%,100% { transform: translate(0); filter: none; }
+      83%  { transform: translate(-4px,1px);  filter: drop-shadow(5px 0 var(--c-commands)) drop-shadow(-5px 0 var(--c-tools)); }
+      85%  { transform: translate(4px,-2px);  filter: drop-shadow(-4px 0 var(--c-commands)) drop-shadow(4px 0 var(--c-tools)); }
+      87%  { transform: translate(-2px,2px);  filter: none; }
+      89%  { transform: translate(3px,-1px);  filter: drop-shadow(2px 0 var(--c-tools)); }
+      91%  { transform: translate(0);         filter: none; }
+    }
+    .hero-sub {
+      margin-top: 2.5rem;
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(.78rem,1.8vw,.98rem);
+      color: var(--muted); min-height: 1.4em;
+    }
+    .cursor {
+      display: inline-block;
+      width: .55em; height: 1.1em;
+      background: var(--c-tools);
+      margin-left: 2px; vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .hero-stats {
+      display: flex; gap: 3rem;
+      margin-top: 3.5rem; flex-wrap: wrap; justify-content: center;
+    }
+    .stat { text-align: center; }
+    .stat-n {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(2rem,5vw,3rem); font-weight: 700;
+      color: var(--c-core); line-height: 1;
+    }
+    .stat-l {
+      font-family: 'Space Mono', monospace;
+      font-size: .62rem; letter-spacing: .22em;
+      text-transform: uppercase; color: var(--muted);
+      margin-top: .3rem;
+    }
+
+    .scroll-hint {
+      position: absolute; bottom: 2rem;
+      display: flex; flex-direction: column; align-items: center; gap: .45rem;
+      color: var(--muted); font-family: 'Space Mono', monospace;
+      font-size: .6rem; letter-spacing: .22em; text-transform: uppercase;
+      animation: hintPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes hintPulse {
+      0%,100% { transform: translateY(0); opacity:.5; }
+      50%      { transform: translateY(8px); opacity:.9; }
+    }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(9,9,15,.88);
+      backdrop-filter: blur(28px);
+      border-bottom: 1px solid var(--border);
+      padding: .85rem 1.5rem;
+      display: flex; gap: .55rem;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .fpill {
+      font-family: 'Space Mono', monospace;
+      font-size: .62rem; letter-spacing: .16em;
+      text-transform: uppercase;
+      padding: .33rem .9rem; border-radius: 100px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; transition: all .2s ease;
+      white-space: nowrap;
+    }
+    .fpill:hover { color: var(--text); border-color: rgba(255,255,255,.22); }
+    .fpill.on { color: #09090f; background: var(--pc); border-color: var(--pc); font-weight: 700; }
+
+    /* ── MAIN GRID ── */
+    .glossary {
+      position: relative; z-index: 1;
+      padding: 4rem 2rem 7rem;
+      max-width: 1440px; margin: 0 auto;
+    }
+    .section-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: .66rem; letter-spacing: .32em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 2.5rem;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.2rem;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.7rem 1.6rem;
+      position: relative; overflow: hidden;
+      transition:
+        opacity .4s ease,
+        transform .5s cubic-bezier(.34,1.56,.64,1),
+        box-shadow .3s ease,
+        scale .4s ease;
+      opacity: 0; transform: translateY(28px);
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    .card.reveal   { opacity: 1; transform: translateY(0); }
+    .card.dim      { opacity: .12; scale: .96; pointer-events: none; }
+
+    /* Top accent bar */
+    .card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: var(--cc);
+      transition: height .3s ease;
+    }
+    .card:hover::before { height: 3px; }
+
+    /* Glow overlay */
+    .card-glow {
+      position: absolute; inset: 0; border-radius: 16px;
+      background: radial-gradient(ellipse at 50% -10%, var(--cc), transparent 70%);
+      opacity: 0; transition: opacity .35s; pointer-events: none;
+    }
+    .card:hover .card-glow { opacity: calc(0.1 * var(--intensity, 1)); }
+    .card:hover {
+      box-shadow: 0 28px 70px rgba(0,0,0,.5), 0 0 0 1px var(--cc), 0 0 calc(40px * var(--intensity, 1)) -10px var(--cc);
+    }
+
+    .card-cat {
+      display: inline-flex; align-items: center; gap: .4em;
+      font-family: 'Space Mono', monospace;
+      font-size: .6rem; letter-spacing: .22em;
+      text-transform: uppercase;
+      padding: .22rem .65rem; border-radius: 5px;
+      background: rgba(255,255,255,.07);
+      color: var(--cc); margin-bottom: 1rem;
+    }
+    .card-cat::before {
+      content: ''; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--cc);
+      flex-shrink: 0;
+    }
+
+    .card-term {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.22rem; font-weight: 700;
+      color: var(--text); margin-bottom: .7rem; line-height: 1.2;
+    }
+
+    .card-def {
+      font-size: .87rem; line-height: 1.68;
+      color: var(--muted); font-family: 'Syne', sans-serif;
+    }
+    .card-def strong { color: var(--cc); font-weight: 700; }
+
+    .card-num {
+      position: absolute; bottom: 1rem; right: 1.2rem;
+      font-family: 'Space Mono', monospace;
+      font-size: .6rem; color: rgba(255,255,255,.09);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      text-align: center; padding: 3.5rem 2rem 4.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .footer-logo {
+      font-size: clamp(2rem,6vw,3.5rem);
+      font-weight: 800; letter-spacing: -.03em; line-height: 1;
+      margin-bottom: 1rem;
+    }
+    .footer-logo .outline {
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--c-tools);
+    }
+    .footer-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: .78rem; color: var(--muted);
+      letter-spacing: .06em;
+    }
+    .footer-credit {
+      margin-top: 2.5rem;
+      font-family: 'Space Mono', monospace;
+      font-size: .62rem; color: rgba(255,255,255,.14);
+    }
+    .footer-dots {
+      display: flex; gap: .6rem; justify-content: center;
+      margin: 1.5rem 0 0;
+    }
+    .footer-dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+    }
+    .footer-dots span:nth-child(1) { background: var(--c-core); }
+    .footer-dots span:nth-child(2) { background: var(--c-tools); }
+    .footer-dots span:nth-child(3) { background: var(--c-memory); }
+    .footer-dots span:nth-child(4) { background: var(--c-commands); }
+    .footer-dots span:nth-child(5) { background: var(--c-arch); }
+
+    @media (max-width: 600px) {
+      .hero-stats { gap: 1.8rem; }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Orbs -->
+<div class="orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+</div>
+
+<!-- Ticker -->
+<div class="ticker">
+  <div class="ticker-track" id="ticker-track">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <p class="hero-eyebrow">// claude.ai/code — the agentic era field manual</p>
+  <h1 class="hero-title">
+    <span class="t1" style="font-size: 155px; color: rgb(229, 225, 239)">CLAUDE</span>
+    <span class="t2">CODE</span>
+  </h1>
+  <p class="hero-sub"><span id="tw"></span><span class="cursor"></span></p>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-n">20</div>
+      <div class="stat-l">Concepts</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">5</div>
+      <div class="stat-l">Categories</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">∞</div>
+      <div class="stat-l">Possibilities</div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>scroll to explore</span>
+    <svg width="14" height="22" viewBox="0 0 14 22" fill="none">
+      <path d="M7 1v16M1 12l6 8 6-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</section>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" id="filterBar">
+  <button class="fpill on" data-f="all"      style="--pc:#ede9f8">ALL</button>
+  <button class="fpill"    data-f="core"     style="--pc:oklch(76% 0.21 42)">CORE</button>
+  <button class="fpill"    data-f="tools"    style="--pc:oklch(79% 0.2 196)">TOOLS</button>
+  <button class="fpill"    data-f="memory"   style="--pc:oklch(76% 0.21 148)">MEMORY</button>
+  <button class="fpill"    data-f="commands" style="--pc:oklch(71% 0.25 330)">COMMANDS</button>
+  <button class="fpill"    data-f="arch"     style="--pc:oklch(73% 0.22 288)">ARCHITECTURE</button>
+</div>
+
+<!-- GLOSSARY -->
+<main class="glossary">
+  <p class="section-eyebrow">// 20 concepts you need to know</p>
+  <div class="cards" id="cards"></div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">CLAUDE <span class="outline">CODE</span></div>
+  <p class="footer-sub">The agentic era is now. Get fluent.</p>
+  <div class="footer-dots">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <p class="footer-credit">// made with claude code, obviously</p>
+</footer>
+
+<script>
+const CAT_COLORS = {
+  core:     'oklch(76% 0.21 42)',
+  tools:    'oklch(79% 0.2 196)',
+  memory:   'oklch(76% 0.21 148)',
+  commands: 'oklch(71% 0.25 330)',
+  arch:     'oklch(73% 0.22 288)',
+};
+
+const TERMS = [
+  { n:'01', cat:'core',     label:'Core',
+    term:'Claude Code',
+    def:`Anthropic's <strong>terminal-native AI coding agent</strong> that reads, edits, and runs code autonomously. Not a chatbot with a code block — a full agent that acts.` },
+
+  { n:'02', cat:'core',     label:'Core',
+    term:'Agentic Mode',
+    def:`<strong>Multi-step autonomous execution</strong> — Claude plans, acts, verifies, and iterates without needing a human prompt at each step. Set the goal. Let it go.` },
+
+  { n:'03', cat:'core',     label:'Core',
+    term:'Context Window',
+    def:`The model's <strong>working memory</strong> — the total tokens Claude can hold in mind at once. Bigger window = more code, more history, more context, more power.` },
+
+  { n:'04', cat:'core',     label:'Core',
+    term:'Artifacts',
+    def:`The <strong>concrete outputs</strong> Claude produces — source files, configs, docs, scripts. The stuff that actually gets committed, reviewed, and shipped.` },
+
+  { n:'05', cat:'core',     label:'Core',
+    term:'Extended Thinking',
+    def:`A mode where Claude <strong>reasons in a private scratchpad</strong> before answering. Token-hungry but dramatically sharper on complex, multi-constraint problems.` },
+
+  { n:'06', cat:'tools',    label:'Tools',
+    term:'MCP',
+    def:`<strong>Model Context Protocol</strong> — an open standard for plugging Claude into external tools, databases, and APIs. The USB-C of AI integrations.` },
+
+  { n:'07', cat:'tools',    label:'Tools',
+    term:'Tool Calls',
+    def:`How Claude <strong>reaches beyond text and into the world</strong> — reading files, running commands, querying APIs. Every action Claude takes is a tool call under the hood.` },
+
+  { n:'08', cat:'tools',    label:'Tools',
+    term:'Bash Tool',
+    def:`<strong>Direct shell access</strong>. Claude runs terminal commands on your actual machine. With this power comes mandatory permission guardrails. Use them.` },
+
+  { n:'09', cat:'tools',    label:'Tools',
+    term:'Computer Use',
+    def:`Claude <strong>sees your screen and can click, type, scroll</strong>. Automates any GUI workflow with no API. Like hiring someone who can operate any software.` },
+
+  { n:'10', cat:'memory',   label:'Memory',
+    term:'CLAUDE.md',
+    def:`Your project's <strong>persistent brain</strong>. A markdown file Claude reads at every session start — architecture, conventions, rules. Write it once, enforced always.` },
+
+  { n:'11', cat:'memory',   label:'Memory',
+    term:'Memory Files',
+    def:`Files <strong>auto-loaded at session startup</strong>. CLAUDE.md is the main one, but you can chain multiple across a monorepo for layered, scoped context.` },
+
+  { n:'12', cat:'memory',   label:'Memory',
+    term:'Prompt Caching',
+    def:`Anthropic's system that <strong>caches repeated context</strong> between API calls — slashing latency and cost for long system prompts and large codebases.` },
+
+  { n:'13', cat:'commands', label:'Commands',
+    term:'/init',
+    def:`The <strong>bootstrap command</strong>. Scans your project, learns your stack, and creates CLAUDE.md. Run it once per repo — it's how Claude meets your codebase.` },
+
+  { n:'14', cat:'commands', label:'Commands',
+    term:'/compact',
+    def:`<strong>Compresses old context</strong> to reclaim token space mid-session. Keeps the signal, summarizes the noise. Like cliff notes for your conversation history.` },
+
+  { n:'15', cat:'commands', label:'Commands',
+    term:'/clear',
+    def:`<strong>Full context wipe</strong>. The nuclear option — fresh slate, zero history. Reach for it when a session derails or you need a hard context switch.` },
+
+  { n:'16', cat:'commands', label:'Commands',
+    term:'Slash Commands',
+    def:`<strong>/shortcuts for power users</strong>. Quick triggers for /init, /compact, /clear, /review, and more. The keyboard shortcuts of the agentic developer workflow.` },
+
+  { n:'17', cat:'arch',     label:'Architecture',
+    term:'Subagents',
+    def:`Claude <strong>spawning mini-Claude workers</strong> to tackle subtasks in parallel. One orchestrator delegates to specialists — faster execution, cleaner concerns.` },
+
+  { n:'18', cat:'arch',     label:'Architecture',
+    term:'Hooks',
+    def:`<strong>Lifecycle callbacks</strong> that fire before or after any tool call. Intercept to log, validate, block, or transform Claude's actions before they land.` },
+
+  { n:'19', cat:'arch',     label:'Architecture',
+    term:'Permissions',
+    def:`Your <strong>trust guardrails</strong> — which tools, paths, and commands Claude can autonomously use. Fine-grained control over exactly what the agent is allowed to touch.` },
+
+  { n:'20', cat:'arch',     label:'Architecture',
+    term:'Headless Mode',
+    def:`Claude Code <strong>without any UI</strong>, running in CI/CD pipelines, cron jobs, or scripts. Full agentic power, zero human interaction required. Automate everything.` },
+];
+
+// ── TICKER ──
+const tickerTrack = document.getElementById('ticker-track');
+const tickerText = TERMS.map(t => `<em>◆</em>${t.term}`).join('&nbsp;&nbsp;&nbsp;');
+tickerTrack.innerHTML = `<span>${tickerText}&nbsp;&nbsp;&nbsp;</span><span>${tickerText}&nbsp;&nbsp;&nbsp;</span>`;
+
+// ── RENDER CARDS ──
+const grid = document.getElementById('cards');
+TERMS.forEach((t, i) => {
+  const color = CAT_COLORS[t.cat];
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.cat = t.cat;
+  el.style.setProperty('--cc', color);
+  el.innerHTML = `
+    <div class="card-glow"></div>
+    <span class="card-cat">${t.label}</span>
+    <p class="card-term">${t.term}</p>
+    <p class="card-def">${t.def}</p>
+    <span class="card-num">${t.n}</span>
+  `;
+  grid.appendChild(el);
+});
+
+// ── SCROLL REVEAL ──
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const idx = [...grid.children].indexOf(e.target);
+    const delay = (idx % 5) * 65;
+    setTimeout(() => e.target.classList.add('reveal'), delay);
+    io.unobserve(e.target);
+  });
+}, { rootMargin: '0px 0px -40px 0px', threshold: .1 });
+document.querySelectorAll('.card').forEach(c => io.observe(c));
+
+// ── 3D CARD TILT ──
+document.querySelectorAll('.card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - .5;
+    const y = (e.clientY - r.top)  / r.height - .5;
+    card.style.transform = `translateY(-6px) rotateX(${-y * 7}deg) rotateY(${x * 7}deg)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+  });
+  card.style.perspective = '800px';
+});
+grid.style.perspective = '800px';
+
+// ── FILTER ──
+document.getElementById('filterBar').addEventListener('click', e => {
+  const pill = e.target.closest('.fpill');
+  if (!pill) return;
+  const f = pill.dataset.f;
+  document.querySelectorAll('.fpill').forEach(p => p.classList.remove('on'));
+  pill.classList.add('on');
+  document.querySelectorAll('.card').forEach(c => {
+    const matches = f === 'all' || c.dataset.cat === f;
+    c.classList.toggle('dim', !matches);
+  });
+});
+
+// ── TYPEWRITER ──
+const phrases = [
+  'The definitive glossary for the agentic era.',
+  '20 concepts every Claude Code user must know.',
+  "Stop nodding along. Start understanding.",
+  'From /init to subagents — decoded.',
+];
+const tw = document.getElementById('tw');
+let pi = 0, ci = 0, deleting = false, hold = 0;
+function tick() {
+  const spd = window._twSpeed || 1;
+  const phrase = phrases[pi];
+  if (!deleting) {
+    tw.textContent = phrase.slice(0, ++ci);
+    if (ci === phrase.length) { deleting = true; hold = 55; }
+    setTimeout(tick, 52 / spd);
+  } else {
+    if (--hold > 0) { setTimeout(tick, 28 / spd); return; }
+    tw.textContent = phrase.slice(0, --ci);
+    if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; }
+    setTimeout(tick, 26 / spd);
+  }
+}
+tick();
+
+// ── TWEAK APPLY ──
+const ORB_BASE_OPACITIES = [.2, .16, .14, .15];
+const ORB_BASE_DURATIONS = [24, 30, 35, 20];
+
+window.applyTweaks = function(speed, intensity) {
+  speed = Math.max(0.1, speed);
+  intensity = Math.max(0, intensity);
+  window._twSpeed = speed;
+
+  // CSS custom props
+  const root = document.documentElement;
+  root.style.setProperty('--grain-opacity', Math.min(0.028 * intensity, 0.18));
+  root.style.setProperty('--intensity', intensity);
+
+  // Ticker
+  const ticker = document.querySelector('.ticker-track');
+  if (ticker) ticker.style.animationDuration = (28 / speed) + 's';
+
+  // Orbs
+  document.querySelectorAll('.orb').forEach((orb, i) => {
+    orb.style.animationDuration = (ORB_BASE_DURATIONS[i] / speed) + 's';
+    orb.style.opacity = Math.min(ORB_BASE_OPACITIES[i] * intensity, 0.88);
+    const blurPx = Math.round(Math.max(20, 100 / (0.4 + intensity * 0.6)));
+    orb.style.filter = `blur(${blurPx}px)`;
+  });
+
+  // Hero glitch
+  const heroTitle = document.querySelector('.hero-title');
+  if (heroTitle) heroTitle.style.animationDuration = (10 / speed) + 's';
+
+  // Scroll hint
+  const hint = document.querySelector('.scroll-hint');
+  if (hint) hint.style.animationDuration = (2.5 / speed) + 's';
+
+  // Cursor blink
+  const cursor = document.querySelector('.cursor');
+  if (cursor) cursor.style.animationDuration = (1 / speed) + 's';
+};
+
+// init with defaults
+window.applyTweaks(1, 1);
+</script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "speed": 1.5,
+  "intensity": 2.4
+}/*EDITMODE-END*/;
+
+function TweaksApp() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    window.applyTweaks(t.speed, t.intensity);
+  }, [t.speed, t.intensity]);
+
+  return (
+    <TweaksPanel>
+      <TweakSection label="Animations">
+        <TweakSlider
+          label="Speed"
+          value={t.speed}
+          min={0.1} max={5} step={0.1}
+          onChange={v => setTweak('speed', v)}
+        />
+      </TweakSection>
+      <TweakSection label="Effects">
+        <TweakSlider
+          label="Intensity"
+          value={t.intensity}
+          min={0} max={5} step={0.1}
+          onChange={v => setTweak('intensity', v)}
+        />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<TweaksApp />);
+</script>
+</body>
+</html>

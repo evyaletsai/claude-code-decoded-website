@@ -1,0 +1,7 @@
+<!-- TODO before launch: replace with a branded, designer-approved OG image asset -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#09090f"/>
+  <text x="60" y="330" font-family="sans-serif" font-size="96" font-weight="800" fill="#ede9f8">CLAUDE CODE</text>
+  <text x="60" y="400" font-family="sans-serif" font-size="96" font-weight="800" fill="none" stroke="#4dd0e1" stroke-width="2">DECODED</text>
+  <text x="60" y="470" font-family="monospace" font-size="28" fill="rgba(237,233,248,0.6)">The definitive glossary for the agentic era</text>
+</svg>
